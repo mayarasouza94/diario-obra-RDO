@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Avanço Diário</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-total-atividades="">
+  <!-- CABEÇALHO FIXO -->
+  <div class="top-header">
+    <h1>Relatório de Avanço Diário</h1>
+    <div class="top-buttons-container">
+      <!-- Grupo de filtros principais -->
+      <div class="filter-group" role="region" aria-label="Filtros principais">
+        <!-- Ícone + select Encarregado -->
+        <button type="button" class="btn-icon" aria-label="Filtrar por encarregado">
+          <i class="fas fa-user-tie"></i>
+        </button>
+        <select
+          id="filtroEncarregado"
+          class="btn-acoes"
+          onchange="applyFilters()"
+          aria-label="Filtro de encarregado"
+        >
+          <option value="">— Todos —</option>
+          {% for nome in encarregados %}
+            <option value="{{ nome }}">{{ nome }}</option>
+          {% endfor %}
+        </select>
+  
+        <!-- Ícone + date picker -->
+        <button type="button" class="btn-icon" aria-label="Filtrar por data">
+          <i class="fas fa-calendar-alt"></i>
+        </button>
+        <input
+          type="date"
+          id="filtroData"
+          class="btn-acoes"
+          onchange="applyFilters()"
+          aria-label="Filtro de data"
+          title="Filtrar por data de início ou término"
+        />
+      </div>
+   
+      <!-- "Exportar Diário" -->
+      <button type="button" class="btn-acoes btn-icon" onclick="exportarDiario()" aria-label="Exportar Diário">
+        <i class="fas fa-file-excel"></i> Exportar Diário
+      </button>
+    </div>
+  </div>
+  
+
+  <!-- BADGE DE PROGRESSO FIXO -->
+  <div class="progress-badge {{ 'avanco' if progresso > 0 else '' }}">
+    {{ preenchidas }} / {{ total }} ({{ progresso }}%)
+  </div>
+
+  <form id="diarioForm" action="/gerar" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="fill_date" id="fill_date_hidden">
+    <input type="hidden" id="atividade_selecionada" name="atividade_selecionada">
+    {% for nivel, atividades in grupos %}
+    {% set container_id = 'grupo_' ~ loop.index %}
+    <div class="nivel-box">
+      <h3 class="disciplina-header" onclick="toggleAtividades('{{ container_id }}')">
+        <span class="arrow">►</span> {{ nivel }}
+      </h3>
+      <div class="atividades-container" id="{{ container_id }}">
+        <!-- PAINEL ESQUERDO: lista de todas as atividades -->
+        <div class="col-esquerda">
+          {% for atv in atividades %}
+            {% set idx = atv.index %}
+            <div class="item-atividade" id="atividade_{{ idx }}"
+                data-encarregado="{{ atv.Encarregado }}"
+                data-edt="{{ atv.EDT }}"
+                onclick="mostrarDetalhes('{{ container_id }}','{{ idx }}')">
+              <h3 class="tarefa-titulo">{{ atv.Descricao }}</h3>
+              <p class="periodo-tarefa">{{ atv.DataInicioStr }} a {{ atv.DataFimStr }}</p>
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- PAINEL DIREITO: detalhamento da atividade selecionada -->
+        <div class="col-direita" id="detalhes_{{ container_id }}">
+          {% for atv in atividades %}
+            {% set idx = atv.index %}
+            <div class="detalhe-atividade" id="detalhe_{{ container_id }}_{{ idx }}">
+              <input type="hidden" name="atividade_idx[]" value="{{ idx }}">
+              <div class="conteudo">
+                {% if atv.EDT in ["SMS", "Qualidade", "Gerais"] %}
+                  <label>Observações:</label>
+                  <textarea name="observacoes_simples[]" id="obs_{{ idx }}" class="observacoes-textarea"></textarea>
+
+                  <span class="confirmar-tarefa-circulo"
+                        onclick="confirmarTarefa('{{ idx }}')"
+                        title="Confirmar observações">
+                  </span>
+                {% else %}
+                  <div class="linha-detalhes">
+                    <div class="item-detalhe">
+                      <label>Status:</label>
+                      <select id="status_{{ idx }}">
+                        <option value="">-- Selecione --</option>
+                        <option value="Iniciada">Iniciada</option>
+                        <option value="Em andamento">Em andamento</option>
+                        <option value="Finalizada">Finalizada</option>
+                        <option value="Remanejada">Remanejada</option>
+                        <option value="Paralisada">Paralisada</option>
+                      </select>
+                    </div>
+                    <div class="item-detalhe progresso-inline">
+                      <label>Progresso:</label>
+                      <input type="text" name="progresso[]" id="progresso_{{ idx }}" class="short-input" autocomplete="off">
+                      <span class="unidade-text">{{ atv.Unidade }}</span>
+                    </div>
+                    <div class="item-detalhe">
+                      <label>Encarregado:</label>
+                      <span>{{ atv.Encarregado }}</span>
+                    </div>
+                  </div>
+
+                  <label>Ferramentas e Recursos:</label>
+                  <select id="ferramentas_selecionadas_{{ idx }}" name="ferramentas_recursos_{{ idx }}[]" class="dual-select" multiple size="5">
+                    {% for recurso in (atv.get('Ferramentas') or '').split(';') %}
+                      {% if recurso.strip() %}
+                        <option value="{{ recurso.strip() }}">{{ recurso.strip() }}</option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                  <div style="display: flex; gap: 8px; margin-top: 5px;">
+                    <input type="text" id="novo_recurso_{{ idx }}" class="short-input" placeholder="Novo recurso">
+                    <button type="button" class="btn-icon" onclick="adicionarRecursoManual('{{ idx }}')" title="Adicionar recurso">+</button>
+                  </div>
+
+                  <label>Atividades Preliminares:</label>
+                  <div id="subtarefas_container_{{ idx }}" class="subtarefas-container"></div>
+                  <button type="button" class="btn-adicionar-linha"
+                          onclick="adicionarSubtarefaLivre('{{ idx }}')">+ Adicionar Linha</button>
+
+                  <label>Observações:</label>
+                  <textarea id="observacao_{{ idx }}" class="observacoes-textarea"></textarea>
+
+                  <label>Evidência (Foto):</label>
+                  <input type="file" name="imagem_{{ idx }}">
+
+                  <span class="confirmar-tarefa-circulo"
+                        onclick="confirmarTarefa('{{ idx }}')"
+                        title="Confirmar tarefa">
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+          <p class="placeholder">Selecione uma atividade à esquerda para ver os detalhes aqui.</p>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </form>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

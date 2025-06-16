@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Avanço Diário</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+
+  <!-- BARRA DE PROGRESSO -->
+  <div id="fake-loading-bar" style="display: none;">
+    <div id="loading-bar-fill"></div>
+    <span id="loading-bar-text">0% carregado...</span>
+  </div>
+
+  <div class="login-container">
+    <h1>Relatório de Avanço Diário</h1>
+
+    <form method="POST" action="/login" onsubmit="return iniciarBarraProgressoCondicional()" novalidate>
+      <div class="form-group">
+        <label for="email">Autenticação:</label>
+        <input type="email" id="email" name="email" placeholder="digite seu e-mail" required>
+        <span id="erro-email" class="error-message">Use um e-mail válido</span>
+      </div>
+
+      <button type="submit" class="login-btn">Entrar</button>
+    </form>
+  </div>
+
+  <script>
+    function validarEmail() {
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const erro = document.getElementById('erro-email');
+      const valido = email.endsWith('@seudominio.com.br');
+      erro.style.display = valido ? 'none' : 'block';
+      return valido;
+    }
+  </script>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
